@@ -1,0 +1,1 @@
+A linux kernel module to print out some offsets of task_struct. This offsets are used in the linux_process_tracker in simics.
