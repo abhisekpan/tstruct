@@ -1,5 +1,11 @@
-modules.order 
-Module.symvers 
-tstruct.ko 
-tstruct.mod.c 
+modules.order
+Module.symvers
+tstruct.ko
+tstruct.mod.c
 tstruct.mod.o
+.tmp_versions/
+.tstruct.ko.cmd
+.tstruct.mod.o.cmd
+.tstruct.o.cmd
+tstruct.o
+
