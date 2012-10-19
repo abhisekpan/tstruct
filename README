@@ -1,1 +1,16 @@
 A linux kernel module to print out some offsets of task_struct. This offsets are used in the linux_process_tracker in simics.
+
+Build:
+    Run make inside the directory. The module kstruct.ko will be created in the directory. Make sure  the kernel headers are present in 
+    /lib/modules/$(shell uname -r)/build.
+
+Load the module:
+    Run as root:
+    insmod tstruct.ko
+
+Output:
+    Look at the end of /var/sys/syslog to see the output
+
+Unload the module:
+    Run as root:
+    rmmod tstruct
