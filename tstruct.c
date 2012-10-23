@@ -5,20 +5,26 @@
 #undef MODULE
 #define MODULE
 
-//#include <stddef.h>
-//#include <stdio.h>
-//#include <stdlib.h>
-//#include <./mysched.h>
-//#include <asm-generic/current.h>
-//#include <./tstruct.h>
-
 #include <linux/module.h>    // included for all kernel modules
 #include <linux/kernel.h>    // included for KERN_INFO
 #include <linux/init.h>        // included for __init and __exit macros
 #include <linux/sched.h>
+#include <asm/current.h>
+//DECLARE_PER_CPU(struct task_struct *, current_task);
+
+static inline long long int read_gs(void)
+{
+    long long int i;
+
+    asm("\t movq %%gs, %0" : "=r"(i));
+    return i;
+}
+
 static int __init tstruct_init(void)
 {
     struct task_struct *cur_task;
+    int id;
+    long long int gs_val;
     cur_task = get_current();
     printk(KERN_INFO "offsets: ts_state=%ld, ts_pid=%ld, ts_next=%ld ts_comm=%ld, ts_prev=%ld\n", 
             (long) offsetof(struct task_struct, state),
@@ -26,8 +32,17 @@ static int __init tstruct_init(void)
             (long) offsetof(struct task_struct, tasks.next),
             (long) offsetof(struct task_struct, comm),
             (long) offsetof(struct task_struct, tasks.prev));
+    
     printk(KERN_INFO "task is %p\n", cur_task);
-    return 0;    // Non-zero return means that the module couldn't be loaded.
+    
+    id = __my_cpu_offset;
+    printk(KERN_INFO "cpu offset is %d\n", id);
+    //printk(KERN_INFO "offset is %p\n", per_cpu_var(current_task));
+
+    gs_val = read_gs();
+    printk(KERN_INFO "gs_value is %lld\n", gs_val);
+    
+    return 0;
 }
 
 static void __exit tstruct_cleanup(void)
@@ -37,23 +52,4 @@ static void __exit tstruct_cleanup(void)
 
 module_init(tstruct_init);
 module_exit(tstruct_cleanup);
-
-
-
-//struct task_struct;
-/*int main(void)
-{
-    //struct task_struct *cur_task;
-    //cur_task = get_current();
-
-
-    printf("offsets: i=%ld; c=%ld; d=%ld a=%ld\n",
-            (long) offsetof(struct task_struct, pid),
-            (long) offsetof(struct s, c),
-            (long) offsetof(struct s, d),
-            (long) offsetof(struct s, a));
-    printf("sizeof(struct s)=%ld\n", (long) sizeof(struct s));
-
-    exit(EXIT_SUCCESS);
-}*/
 
