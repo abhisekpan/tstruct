@@ -5,69 +5,86 @@
 #undef MODULE
 #define MODULE
 
-#include <linux/module.h>    // included for all kernel modules
-#include <linux/kernel.h>    // included for KERN_INFO
-#include <linux/init.h>        // included for __init and __exit macros
+#include <linux/module.h>
+#include <linux/kernel.h>
+#include <linux/init.h>
 #include <linux/sched.h>
 #include <asm/current.h>
-//DECLARE_PER_CPU(struct task_struct *, current_task);
 
-static inline long long int read_gs(void)
+/*
+   static inline long long int read_gs(void)
+   {
+   long long int i;
+
+   asm("\t movq %%gs, %0" : "=r"(i));
+   return i;
+   }
+ */
+
+static inline struct task_struct *try_current_task(unsigned long int p_offset)
 {
-    long long int i;
-
-    asm("\t movq %%gs, %0" : "=r"(i));
-    return i;
+	struct task_struct ** cur_task_maybe;
+	unsigned long int offset;
+	offset = p_offset;
+	/* MSR_GS_BASE contains the base address of GS segment */
+	cur_task_maybe = (struct task_struct **) 
+		(native_read_msr(MSR_GS_BASE) + offset);
+	if (*cur_task_maybe != NULL) {
+		printk (KERN_INFO "value for %p is %p\n", cur_task_maybe, 
+				*cur_task_maybe);
+	}
+	return (struct task_struct *) *cur_task_maybe;
 }
-
-static inline struct task_struct *try_current_task(void)
-{
-    unsigned long long cur_task_maybe;
-    unsigned int offset;
-    offset = 0xb000;
-    asm("\t movq %%gs:%P1, %0" : "=r"(cur_task_maybe) : "m"(offset));
-    //cur_task_maybe = (struct task_struct *)(native_read_msr(MSR_GS_BASE) + 0xb000);
-    printk (KERN_INFO "value is %llu\n", cur_task_maybe);
-    return (struct task_struct *) cur_task_maybe;
-}
-
 
 static int __init tstruct_init(void)
 {
-    struct task_struct *cur_task;
-    struct task_struct *cur_task_maybe;
-    int id;
-    long long int gs_val;
-    cur_task = get_current();
-    cur_task_maybe = try_current_task();
-    if (cur_task == cur_task_maybe) {
-	printk (KERN_INFO "success");
-    } else {
-	printk (KERN_INFO "failure");
-    }
-    printk(KERN_INFO "offsets: ts_state=%ld, ts_pid=%ld, ts_next=%ld ts_comm=%ld, ts_prev=%ld\n", 
-            (long) offsetof(struct task_struct, state),
-            (long) offsetof(struct task_struct, pid),
-            (long) offsetof(struct task_struct, tasks.next),
-            (long) offsetof(struct task_struct, comm),
-            (long) offsetof(struct task_struct, tasks.prev));
-    
-    printk(KERN_INFO "task is %p\n", cur_task);
-    printk(KERN_INFO "task may be %p\n", cur_task_maybe);    
+	struct task_struct *cur_task;
+	struct task_struct *cur_task_maybe;
+	/*
+	long long int gs_val;
+	unsigned long int offset;
+	*/
+	unsigned int pid;
+	/* processor id */
+	pid = smp_processor_id();
+	printk (KERN_INFO "processor id %u\n", pid);
+	/*
+	   for (offset = 0; offset < 0x02000; offset = offset + 0x040) {
+	   cur_task_maybe = try_current_task(offset);
+	   }
+	 */
+	cur_task = get_current();
+	/* The offset of _per_cpu__current_task is 0Xcbc0 for kernel 2.6.32-38,
+	 * ubuntu 10.04. This can be obtained by running:
+	 * cat /proc/kallsyms | grep per_cpu__current_task
+	 */
+	cur_task_maybe = try_current_task(0x000000000000cbc0);
+	if (cur_task == cur_task_maybe) {
+		printk (KERN_INFO "success: offset is correct");
+	} else {
+		printk (KERN_INFO "failure: wrong offset");
+	}
+	printk(KERN_INFO "task is %p\n", cur_task);
+	printk(KERN_INFO "task may be %p\n", cur_task_maybe);    
 
-    id = __my_cpu_offset;
-    printk(KERN_INFO "cpu offset is %d\n", id);
-    //printk(KERN_INFO "offset is %p\n", per_cpu_var(current_task));
+	printk(KERN_INFO "offsets: ts_state=%ld, ts_pid=%ld, ts_next=%ld, \
+			ts_comm=%ld, ts_prev=%ld\n", 
+			(long) offsetof(struct task_struct, state),
+			(long) offsetof(struct task_struct, pid),
+			(long) offsetof(struct task_struct, tasks.next),
+			(long) offsetof(struct task_struct, comm),
+			(long) offsetof(struct task_struct, tasks.prev));
 
-    gs_val = read_gs();
-    printk(KERN_INFO "gs_value is %lld\n", gs_val);
-    
-    return 0;
+	/*
+	   gs_val = read_gs();
+	   printk(KERN_INFO "gs_value is %lld\n", gs_val);
+	 */
+	return 0;
 }
 
 static void __exit tstruct_cleanup(void)
 {
-    printk(KERN_INFO "Cleaning up module.\n");
+	printk(KERN_INFO "Cleaning up module.\n");
 }
 
 module_init(tstruct_init);
